@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>बिल भुगतान — इंटरैक्टिव प्रोटोटाइप</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ===== Khabar DS tokens ===== */
+    --brand:#BA2027; --brand-hover:#9D1B21; --brand-press:#E15157;
+    --brand-tint-100:#F5C2C4; --brand-tint-50:#FBE5E6;
+    --bg-primary:#FFFFFF; --bg-gray:#F3F4F6; --surface-dark:#111827;
+    --border-gray-300:#D1D5DB; --border-gray-100:#F3F4F6;
+    --text-primary:#1F2937; --text-secondary:#4B5563; --text-gray-400:#6B7280;
+    --text-negative:#FFFFFF; --text-success:#0A8400;
+    --success-bg:#DCFCE7; --link:#4390FF;
+    --radius-8:8px; --radius-12:12px; --radius-16:16px; --radius-1000:1000px;
+    --font:'Noto Sans Devanagari', sans-serif; --mono:'JetBrains Mono', monospace;
+    --shadow-xl:0 20px 25px -5px rgba(25,31,43,.18);
+    --shadow-sm:0 1px 3px rgba(25,31,43,.10);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:var(--font); background:#EEF1F4;
+    min-height:100vh; padding:44px 24px 64px;
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+  }
+  .proto-title{font-size:19px; font-weight:700; color:var(--text-primary); text-align:center;}
+  .proto-sub{font-size:12.5px; color:var(--text-secondary); text-align:center; max-width:340px;}
+  .reset-btn{
+    margin-top:2px; border:1.5px solid var(--border-gray-300); background:#fff;
+    color:var(--text-secondary); font-family:var(--font); font-weight:600; font-size:12.5px;
+    padding:8px 16px; border-radius:var(--radius-1000); cursor:pointer;
+  }
+  .reset-btn:active{ background:var(--bg-gray); }
+  .persona-switcher{
+    display:flex; gap:8px; background:#fff; border:1px dashed var(--border-gray-300);
+    border-radius:var(--radius-1000); padding:4px; margin-top:2px;
+  }
+  .persona-switcher button{
+    border:none; cursor:pointer; background:transparent; font-family:var(--font);
+    font-weight:600; font-size:12.5px; color:var(--text-secondary);
+    padding:8px 16px; border-radius:var(--radius-1000); transition:all .15s ease;
+  }
+  .persona-switcher button.active{ background:var(--brand); color:#fff; }
+
+  .outcome-switcher{
+    display:flex; gap:6px; background:#fff; border:1px dashed var(--border-gray-300);
+    border-radius:var(--radius-1000); padding:4px; margin-top:2px; flex-wrap:wrap; justify-content:center;
+  }
+  .outcome-switcher button{
+    border:none; cursor:pointer; background:transparent; font-family:var(--font);
+    font-weight:600; font-size:12px; color:var(--text-secondary);
+    padding:7px 12px; border-radius:var(--radius-1000); transition:all .15s ease;
+  }
+  .outcome-switcher button#outcome-success.active{ background:var(--text-success); color:#fff; }
+  .outcome-switcher button#outcome-pending.active{ background:#D97706; color:#fff; }
+  .outcome-switcher button#outcome-failed.active{ background:#DC2626; color:#fff; }
+  .outcome-switcher button#outcome-refund.active{ background:var(--link); color:#fff; }
+
+  /* ===== Amazing Wireframe: mobile chrome ===== */
+  .phone{ width:375px; height:812px; background:#0D1520; border-radius:44px; padding:10px; box-shadow:var(--shadow-xl); position:relative; }
+  .screen{ width:100%; height:100%; background:var(--bg-primary); border-radius:34px; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .status-bar{
+    height:44px; flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+    padding:0 26px; font-family:var(--mono); font-weight:600; font-size:14px; color:var(--text-primary);
+    position:relative; z-index:60; background:transparent;
+  }
+  .status-icons{ display:flex; align-items:center; gap:5px; }
+  .signal-bars{ display:flex; align-items:flex-end; gap:2px; height:10px; }
+  .signal-bars span{ width:3px; background:var(--text-primary); border-radius:1px; }
+  .signal-bars span:nth-child(1){height:4px;} .signal-bars span:nth-child(2){height:6px;}
+  .signal-bars span:nth-child(3){height:8px;} .signal-bars span:nth-child(4){height:10px;}
+  .battery{ width:24px; height:12px; border:1.4px solid var(--text-primary); border-radius:3px; position:relative; padding:1.5px; }
+  .battery::after{ content:""; position:absolute; right:-4px; top:3.5px; width:2px; height:5px; background:var(--text-primary); border-radius:0 2px 2px 0; }
+  .battery i{ display:block; height:100%; width:78%; background:var(--text-primary); border-radius:1px; }
+
+  .home-indicator{
+    position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    width:134px; height:5px; border-radius:var(--radius-1000); background:var(--surface-dark); opacity:.7; z-index:70;
+  }
+
+  /* ===== screen stack / navigation ===== */
+  .screen-stack{ position:relative; flex:1 1 auto; overflow:hidden; }
+  .app-screen{
+    position:absolute; inset:0; background:var(--bg-primary);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .topnav{ flex:0 0 auto; height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; }
+  .topnav .title{ font-size:17px; font-weight:600; color:var(--text-primary); }
+  .circle-btn{
+    width:38px; height:38px; border-radius:var(--radius-1000); background:var(--bg-gray);
+    display:flex; align-items:center; justify-content:center; color:var(--text-secondary);
+    flex:0 0 auto; border:none; cursor:pointer;
+  }
+  .circle-btn svg{ width:17px; height:17px; }
+  .spacer38{ width:38px; height:38px; flex:0 0 auto; }
+
+  .scroll{ flex:1 1 auto; overflow-y:auto; -ms-overflow-style:none; scrollbar-width:none; }
+  .scroll::-webkit-scrollbar{ display:none; }
+
+  /* ===== shared toast ===== */
+  .toast{
+    position:absolute; left:16px; right:16px; bottom:36px; z-index:80;
+    background:var(--surface-dark); color:#fff; font-size:13px; font-weight:600; text-align:center;
+    padding:12px; border-radius:var(--radius-12); opacity:0; transform:translateY(10px);
+    transition:all .25s ease; pointer-events:none;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+
+  /* ===== SCREEN 1: home ===== */
+  .home-pad{ padding:4px 16px 100px; }
+  .banner{ background:linear-gradient(120deg, var(--brand) 0%, var(--brand-press) 100%); border-radius:var(--radius-16); padding:16px 20px; display:flex; align-items:center; gap:14px; margin-bottom:24px; box-shadow:var(--shadow-sm); }
+  .coin-badge{ width:44px; height:44px; border-radius:var(--radius-1000); background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; font-size:22px; flex:0 0 auto; }
+  .banner .b-title{ color:#fff; font-weight:700; font-size:15px; line-height:20px; }
+  .banner .b-sub{ color:rgba(255,255,255,.85); font-size:12.5px; margin-top:2px; }
+  .section-title{ font-size:14px; font-weight:600; color:var(--text-secondary); margin:0 2px 10px; display:flex; align-items:center; justify-content:space-between; }
+  .section-title .link{ font-size:13px; font-weight:600; color:var(--link); cursor:pointer; }
+  .due-card{ display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--border-gray-100); border-radius:var(--radius-16); padding:14px; margin-bottom:10px; box-shadow:var(--shadow-sm); cursor:pointer; }
+  .logo-circle{ width:42px; height:42px; border-radius:var(--radius-1000); background:var(--bg-gray); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12.5px; color:var(--brand); flex:0 0 auto; border:1px solid var(--border-gray-100); text-align:center; line-height:13px; }
+  .due-info{ flex:1; min-width:0; } .due-info .name{ font-size:14.5px; font-weight:600; color:var(--text-primary); }
+  .due-info .meta{ font-size:12.5px; color:var(--text-gray-400); margin-top:2px; }
+  .due-amt{ text-align:right; flex:0 0 auto; } .due-amt .amt{ font-size:15px; font-weight:700; color:var(--text-primary); }
+  .due-amt .date{ font-size:11.5px; font-weight:600; color:var(--brand); margin-top:2px; }
+  .grid7{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px 8px; margin-top:4px; }
+  .grid-item{ display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; }
+  .grid-icon{ width:56px; height:56px; border-radius:var(--radius-1000); display:flex; align-items:center; justify-content:center; background:var(--surface-dark); color:#fff; position:relative; }
+  .grid-icon.brand{ background:var(--brand); } .grid-icon svg{ width:24px; height:24px; }
+  .grid-item .lbl{ font-size:11.5px; font-weight:500; color:var(--text-secondary); text-align:center; line-height:14px; }
+  .new-tag{ position:absolute; top:-6px; right:-6px; background:var(--link); color:#fff; font-size:8.5px; font-weight:700; padding:2px 5px; border-radius:6px; }
+
+  /* ===== SCREEN 1b: all upcoming bills (list) ===== */
+  .dues-pad{ padding:4px 16px 32px; }
+  .dues-count{ font-size:13px; font-weight:600; color:var(--text-gray-400); margin:2px 2px 16px; }
+  .dues-group-label{ font-size:12px; font-weight:600; color:var(--text-gray-400); text-transform:uppercase; letter-spacing:.02em; margin:16px 2px 10px; }
+  .dues-group-label:first-of-type{ margin-top:0; }
+
+  /* ===== SCREEN 2: electricity landing ===== */
+  .elec-pad{ padding:0 16px 24px; }
+  .add-connection-row{ display:flex; align-items:center; gap:12px; padding:13px 4px; margin-bottom:8px; border-bottom:1px solid var(--border-gray-100); cursor:pointer; }
+  .add-connection-ic{ width:38px; height:38px; border-radius:var(--radius-1000); background:var(--brand-tint-50); color:var(--brand); font-size:19px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .search-field{ display:flex; align-items:center; gap:10px; background:var(--bg-gray); border-radius:var(--radius-12); padding:12px 14px; margin-bottom:20px; }
+  .search-field svg{ width:18px; height:18px; color:var(--text-gray-400); flex:0 0 auto; }
+  .search-field input{ border:none; background:transparent; outline:none; font-family:var(--font); font-size:14px; color:var(--text-primary); width:100%; }
+  .search-field input::placeholder{ color:var(--text-gray-400); }
+  .board-row{ display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--border-gray-100); cursor:pointer; }
+  .board-row:last-child{ border-bottom:none; }
+  .board-avatar{ width:38px; height:38px; border-radius:var(--radius-1000); background:var(--bg-gray); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:var(--brand); flex:0 0 auto; border:1px solid var(--border-gray-100); }
+  .board-name{ flex:1; font-size:14px; font-weight:500; color:var(--text-primary); line-height:19px; }
+  .chev{ color:var(--text-gray-400); flex:0 0 auto; } .chev svg{ width:16px; height:16px; }
+  .account-card{ background:#fff; border:1.5px solid var(--brand-tint-100); border-radius:var(--radius-16); padding:16px; margin-bottom:24px; box-shadow:var(--shadow-sm); position:relative; }
+  .account-card .top{ display:flex; align-items:center; gap:12px; cursor:pointer; padding-right:28px; }
+  .account-card .due-line{ margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-gray-300); display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .kebab-btn{ position:absolute; top:14px; right:14px; width:28px; height:28px; border:none; background:transparent; display:flex; align-items:center; justify-content:center; color:var(--text-gray-400); cursor:pointer; padding:0; }
+  .kebab-btn svg{ width:18px; height:18px; }
+  .account-card .nickname{ font-size:15px; font-weight:700; color:var(--text-primary); }
+  .account-card .acct-no{ font-size:12.5px; color:var(--text-gray-400); margin-top:2px; }
+  .due-badge{ background:var(--brand-tint-50); color:var(--brand); font-size:13px; font-weight:700; padding:5px 10px; border-radius:var(--radius-8); }
+  .go-btn{ font-size:12.5px; font-weight:700; color:#fff; background:var(--brand); padding:7px 14px; border-radius:var(--radius-1000); }
+  .subhead{ font-size:12.5px; font-weight:600; color:var(--text-gray-400); margin:18px 2px 4px; text-transform:uppercase; letter-spacing:.02em; }
+
+  /* ===== SCREEN 3: consumer details (new connection) ===== */
+  .cd-pad{ padding:8px 16px 24px; }
+  .selected-board{ display:flex; align-items:center; gap:12px; background:var(--bg-gray); border-radius:var(--radius-16); padding:14px; margin-bottom:24px; }
+  .selected-board .name{ font-size:14.5px; font-weight:700; color:var(--text-primary); }
+  .selected-board .tag{ font-size:11.5px; color:var(--text-gray-400); margin-top:2px; }
+  .field{ margin-bottom:18px; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--text-secondary); margin-bottom:6px; display:block; }
+  .field input{ width:100%; border:1.5px solid var(--border-gray-300); border-radius:var(--radius-8); padding:13px 14px; font-family:var(--font); font-size:14.5px; color:var(--text-primary); outline:none; background:#fff; }
+  .field input:focus{ border-color:var(--brand); }
+  .field .hint{ font-size:11.5px; color:var(--text-gray-400); margin-top:6px; }
+
+  /* ===== shared CTA button + footer ===== */
+  .cta-footer{ position:absolute; left:0; right:0; bottom:0; padding:14px 16px 28px; background:linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 32%); }
+  .cta-btn{ width:100%; border:none; cursor:pointer; background:var(--brand); color:#fff; font-family:var(--font); font-weight:700; font-size:15.5px; padding:15px; border-radius:var(--radius-8); box-shadow:0 8px 16px -6px rgba(186,32,39,.4); transition:background .15s ease; }
+  .cta-btn:active{ background:var(--brand-hover); }
+  .cta-btn.is-disabled{ background:var(--border-gray-300); color:var(--text-gray-400); box-shadow:none; pointer-events:none; }
+  .spinner{ display:inline-block; width:15px; height:15px; border:2px solid rgba(255,255,255,.45); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; margin-right:8px; vertical-align:-2px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ===== SCREEN 4: bill details ===== */
+  .bill-card{ margin:8px 16px 0; background:var(--bg-gray); border-radius:var(--radius-16); overflow:hidden; }
+  .bill-head{ padding:20px 20px 16px; display:flex; gap:14px; }
+  .bill-head .logo-circle{ width:52px; height:52px; font-size:14px; }
+  .bill-head .customer{ font-size:17px; font-weight:700; color:var(--text-primary); }
+  .bill-head .board{ font-size:12.5px; color:var(--text-gray-400); margin-top:3px; line-height:18px; }
+  .due-pill{ display:inline-block; margin-top:10px; background:#FEF3C7; color:#92400E; font-size:12px; font-weight:700; padding:5px 12px; border-radius:var(--radius-8); }
+  .bill-divider{ height:1px; background:var(--border-gray-300); margin:0 20px; opacity:.6; }
+  .bill-amount{ padding:20px 20px 4px; } .bill-amount .amt{ font-size:38px; font-weight:700; color:var(--text-primary); }
+  .bill-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding:18px 20px 22px; background:#fff; margin:16px 0 0; border-radius:0 0 var(--radius-16) var(--radius-16); }
+  .bill-grid .k{ font-size:11.5px; color:var(--text-gray-400); margin-bottom:4px; } .bill-grid .v{ font-size:13px; font-weight:700; color:var(--text-primary); }
+  .coin-note{ margin:20px 16px 0; display:flex; align-items:center; gap:10px; background:var(--brand-tint-50); border-radius:var(--radius-12); padding:12px 14px; }
+  .coin-note .txt{ font-size:12.5px; font-weight:600; color:var(--brand); }
+
+  /* ===== SCREEN 5: payment success ===== */
+  .success-pad{ padding:12px 16px 24px; text-align:center; }
+  .success-check{ width:88px; height:88px; border-radius:50%; background:var(--success-bg); display:flex; align-items:center; justify-content:center; margin:24px auto 18px; animation:pop .5s cubic-bezier(.34,1.56,.64,1); }
+  .result-icon{ width:88px; height:88px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:24px auto 18px; animation:pop .5s cubic-bezier(.34,1.56,.64,1); }
+  .result-icon svg{ width:40px; height:40px; }
+  .result-icon.amber{ background:#FEF3C7; }
+  .result-icon.red{ background:#FEE2E2; }
+  .result-icon.blue{ background:#EAF3FF; }
+  .info-box{ background:var(--bg-gray); border-radius:var(--radius-12); padding:14px; margin:0 0 20px; text-align:left; font-size:12.5px; color:var(--text-secondary); line-height:18px; }
+  .pill-amber, .pill-red, .pill-grey{ font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:var(--radius-1000); }
+  .pill-amber{ background:#FEF3C7; color:#92400E; }
+  .pill-red{ background:#FEE2E2; color:#DC2626; }
+  .pill-grey{ background:var(--bg-gray); color:var(--text-gray-400); }
+  .pill-green{ background:var(--success-bg); color:var(--text-success); font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:var(--radius-1000); }
+  .success-check svg{ width:42px; height:42px; }
+  @keyframes pop{ 0%{ transform:scale(0); } 70%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
+  .success-title{ font-size:19px; font-weight:700; color:var(--text-primary); }
+  .success-sub{ font-size:13px; color:var(--text-gray-400); margin-top:6px; }
+  .coins-earned{ background:var(--brand-tint-50); border-radius:var(--radius-16); padding:18px; margin:22px 0; }
+  .coins-earned .lbl{ font-size:12.5px; font-weight:600; color:var(--brand); }
+  .coins-earned .num{ font-size:30px; font-weight:700; color:var(--brand); margin-top:4px; }
+  .txn-id{ font-size:11.5px; color:var(--text-gray-400); margin-bottom:22px; }
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+  .btn-outline{ width:100%; border:1.5px solid var(--brand); background:#fff; color:var(--brand); font-family:var(--font); font-weight:700; font-size:14.5px; padding:13px; border-radius:var(--radius-8); cursor:pointer; }
+  .btn-fill{ width:100%; border:none; background:var(--brand); color:#fff; font-family:var(--font); font-weight:700; font-size:14.5px; padding:13px; border-radius:var(--radius-8); cursor:pointer; }
+  .btn-fill.is-disabled{ background:var(--border-gray-300); color:var(--text-gray-400); pointer-events:none; }
+
+  /* ===== SCREEN 6: invoice ===== */
+  .inv-pad{ padding:12px 16px 24px; }
+  .inv-card{ background:var(--bg-gray); border-radius:var(--radius-16); padding:18px; }
+  .inv-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border-gray-100); }
+  .inv-row:last-child{ border-bottom:none; }
+  .inv-row .k{ font-size:12.5px; color:var(--text-gray-400); }
+  .inv-row .v{ font-size:13px; font-weight:700; color:var(--text-primary); text-align:right; }
+  .status-pill{ background:var(--success-bg); color:var(--text-success); font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:var(--radius-1000); }
+  .inv-actions{ display:flex; gap:10px; margin-top:20px; }
+  .inv-actions .btn-outline{ flex:1; }
+
+  /* ===== bottom sheet (account "more" menu) ===== */
+  .sheet-backdrop{
+    position:absolute; inset:0; background:rgba(17,24,39,.45); z-index:90;
+    opacity:0; pointer-events:none; transition:opacity .25s ease;
+  }
+  .sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+  .bottom-sheet{
+    position:absolute; left:0; right:0; bottom:0; background:#fff;
+    border-radius:20px 20px 0 0; z-index:91; padding:20px 20px 32px;
+    max-height:78%; overflow-y:auto;
+    transform:translateY(100%); transition:transform .32s cubic-bezier(.22,.61,.36,1);
+    box-shadow:0 -8px 24px rgba(17,24,39,.12);
+  }
+  .bottom-sheet.show{ transform:translateY(0); }
+  .sheet-header{ display:flex; align-items:center; gap:12px; }
+  .sheet-title{ font-size:17px; font-weight:700; color:var(--text-primary); }
+  .sheet-sub{ font-size:13px; color:var(--text-gray-400); margin-top:2px; }
+  .icon-btn{ border:none; background:transparent; color:var(--text-primary); cursor:pointer; padding:4px; display:flex; }
+  .icon-btn svg{ width:20px; height:20px; }
+  .sheet-divider{ height:1px; background:var(--border-gray-100); margin:14px 0; }
+  .sheet-row{ display:flex; align-items:center; gap:14px; padding:4px 2px; font-size:15px; font-weight:500; color:var(--text-primary); cursor:pointer; }
+  .sheet-row svg{ width:20px; height:20px; color:var(--text-secondary); flex:0 0 auto; }
+  .sheet-row.danger{ color:#DC2626; }
+  .sheet-row.danger svg{ color:#DC2626; }
+  .sheet-title-lg{ font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:14px; }
+  .sheet-sub-block{ font-size:13px; color:var(--text-secondary); line-height:19px; margin-bottom:20px; }
+  .btn-fill.danger-btn{ background:#DC2626; box-shadow:none; }
+</style>
+</head>
+<body>
+
+<div class="proto-title">बिल भुगतान — इंटरैक्टिव प्रोटोटाइप</div>
+<div class="proto-sub">ऐप में कोई टैब नहीं है — इलेक्ट्रिसिटी लैंडिंग अपने-आप तय करती है कि उपयोगकर्ता के पास सेव्ड कनेक्शन है या नहीं। प्रीव्यू के लिए नीचे persona चुनें:</div>
+
+<div class="persona-switcher">
+  <button class="active" id="persona-existing" onclick="setPersona(false)">🧑‍💼 मौजूदा उपयोगकर्ता</button>
+  <button id="persona-new" onclick="setPersona(true)">🆕 नया उपयोगकर्ता</button>
+</div>
+
+<div class="proto-sub" style="margin-top:2px;">"अभी भुगतान करें" दबाने पर क्या होना चाहिए — भुगतान परिणाम चुनें:</div>
+<div class="outcome-switcher">
+  <button class="active" id="outcome-success" onclick="setOutcome('success')">✅ सफल</button>
+  <button id="outcome-pending" onclick="setOutcome('pending')">⏳ पेंडिंग</button>
+  <button id="outcome-failed" onclick="setOutcome('failed')">❌ असफल</button>
+  <button id="outcome-refund" onclick="setOutcome('refund')">↩️ रिफंड</button>
+</div>
+
+<button class="reset-btn" onclick="resetAll()">🔄 शुरू से शुरू करें</button>
+
+<div class="phone">
+  <div class="screen">
+
+    <div class="status-bar">
+      <span id="clock">3:54</span>
+      <div class="status-icons">
+        <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+        <span>4G</span>
+        <div class="battery"><i></i></div>
+      </div>
+    </div>
+
+    <div class="screen-stack">
+
+      <!-- ============ 1. HOME ============ -->
+      <div class="app-screen" id="screen-home" style="transform:translateX(0); z-index:10;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="showToast('कोई नई सूचना नहीं')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8a6 6 0 1112 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6z"/><path d="M10 21a2 2 0 004 0"/></svg></button>
+          <div class="title">बिल भुगतान</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="home-pad">
+            <div class="banner">
+              <div class="coin-badge">🪙</div>
+              <div>
+                <div class="b-title">हर बिल भुगतान पर पाएं कॉइन्स!</div>
+                <div class="b-sub">बिजली बिल भरें और लॉयल्टी कॉइन्स कमाएं</div>
+              </div>
+            </div>
+
+            <div class="section-title">जल्द देय बिल <span class="link" onclick="goTo('all-dues')">सभी देखें</span></div>
+            <div class="due-card" id="due-electricity" onclick="openElectricity()">
+              <div class="logo-circle">DH<br>BVN</div>
+              <div class="due-info">
+                <div class="name">बिजली बिल · DHBVN</div>
+                <div class="meta" id="due-nickname-home">203 बजरंग · •••••271</div>
+              </div>
+              <div class="due-amt"><div class="amt">₹15,220</div><div class="date">28 सित॰ को देय</div></div>
+            </div>
+            <div class="due-card" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+              <div class="logo-circle" style="color:#4390FF;">JIO</div>
+              <div class="due-info"><div class="name">मोबाइल पोस्टपेड · Jio</div><div class="meta">98XXXXXX10</div></div>
+              <div class="due-amt"><div class="amt">₹499</div><div class="date">3 अक्तू॰ को देय</div></div>
+            </div>
+
+            <div class="section-title" style="margin-top:22px;">सभी बिल भुगतान</div>
+            <div class="grid7">
+              <div class="grid-item" onclick="openElectricity()">
+                <div class="grid-icon brand"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></div>
+                <div class="lbl">बिजली बिल</div>
+              </div>
+              <div class="grid-item" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+                <div class="grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v4M8 3a4 4 0 000 8m0-8h8m-8 8a4 4 0 004 4h4m-4-4v9m0 0h-3m3 0h3"/></svg></div>
+                <div class="lbl">पाइप्ड गैस</div>
+              </div>
+              <div class="grid-item" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+                <div class="grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 18h6"/></svg></div>
+                <div class="lbl">मोबाइल रिचार्ज</div>
+              </div>
+              <div class="grid-item" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+                <div class="grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12a7 3 0 0014 0V6"/></svg></div>
+                <div class="lbl">सिलेंडर बुक करें</div>
+              </div>
+              <div class="grid-item" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+                <div class="grid-icon" style="position:relative;">
+                  <span class="new-tag">नया</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="16" height="11" rx="2"/><path d="M18 10h2l2 3v5h-4"/><circle cx="7" cy="19" r="2"/><circle cx="16" cy="19" r="2"/></svg>
+                </div>
+                <div class="lbl">फास्टैग रिचार्ज</div>
+              </div>
+              <div class="grid-item" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+                <div class="grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l3 4v14H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></div>
+                <div class="lbl">ट्रैफिक चालान</div>
+              </div>
+              <div class="grid-item" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+                <div class="grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg></div>
+                <div class="lbl">लोन ईएमआई</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 1b. ALL UPCOMING BILLS (list view) ============ -->
+      <div class="app-screen" id="screen-all-dues" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">सभी देय बिल</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="dues-pad">
+            <div class="dues-count" id="dues-count">4 बिल आपकी प्रतीक्षा में हैं</div>
+
+            <div class="dues-group-label" id="dues-week-label">इस सप्ताह देय</div>
+            <div class="due-card" id="due-electricity-2" onclick="openElectricity()">
+              <div class="logo-circle">DH<br>BVN</div>
+              <div class="due-info">
+                <div class="name">बिजली बिल · DHBVN</div>
+                <div class="meta" id="due-nickname-list">203 बजरंग · •••••271</div>
+              </div>
+              <div class="due-amt"><div class="amt">₹15,220</div><div class="date">28 सित॰ को देय</div></div>
+            </div>
+
+            <div class="dues-group-label">अगले सप्ताह देय</div>
+            <div class="due-card" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+              <div class="logo-circle" style="color:#4390FF;">JIO</div>
+              <div class="due-info"><div class="name">मोबाइल पोस्टपेड · Jio</div><div class="meta">98XXXXXX10</div></div>
+              <div class="due-amt"><div class="amt">₹499</div><div class="date">3 अक्तू॰ को देय</div></div>
+            </div>
+            <div class="due-card" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+              <div class="logo-circle" style="color:#0A8400;">EMI</div>
+              <div class="due-info"><div class="name">लोन ईएमआई · Bajaj Finserv</div><div class="meta">लोन खाता ••4821</div></div>
+              <div class="due-amt"><div class="amt">₹4,850</div><div class="date">5 अक्तू॰ को देय</div></div>
+            </div>
+            <div class="due-card" onclick="showToast('यह सेवा जल्द उपलब्ध होगी')">
+              <div class="logo-circle" style="color:#D97706;">गैस</div>
+              <div class="due-info"><div class="name">पाइप्ड गैस · Adani Gas</div><div class="meta">उपभोक्ता ••7042</div></div>
+              <div class="due-amt"><div class="amt">₹1,120</div><div class="date">9 अक्तू॰ को देय</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 2a. ELECTRICITY LANDING — EXISTING USER (has a saved connection) ============ -->
+      <div class="app-screen" id="screen-elec-existing" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">बिजली बिल</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="elec-pad">
+            <div id="elec-account-section">
+              <div class="subhead" style="margin-top:8px;">आपके खाते</div>
+              <div class="account-card">
+                <button class="kebab-btn" onclick="event.stopPropagation(); openAccountSheet();" aria-label="अधिक विकल्प">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+                </button>
+                <div class="top" onclick="goTo('bill-details')">
+                  <div class="logo-circle">DH<br>BVN</div>
+                  <div><div class="nickname" id="acct-nickname">203 बजरंग</div><div class="acct-no">DHBVN · •••••271</div></div>
+                </div>
+                <div class="due-line" onclick="goTo('bill-details')"><span class="due-badge">₹15,220 · 28 सित॰ देय</span><span class="go-btn">भुगतान करें →</span></div>
+              </div>
+            </div>
+
+            <div class="add-connection-row" onclick="goTo('elec-new')">
+              <div class="add-connection-ic">+</div>
+              <div class="board-name" style="font-weight:600; color:var(--brand);">नया कनेक्शन जोड़ें</div>
+              <div class="chev">›</div>
+            </div>
+
+            <div class="subhead">दिल्ली में प्रदाता</div>
+            <div class="board-row" onclick="selectBoard('BSES राजधानी','BS')"><div class="board-avatar">BS</div><div class="board-name">BSES राजधानी — बिल भुगतान</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('BSES राजधानी (प्रीपेड)','BS')"><div class="board-avatar">BS</div><div class="board-name">BSES राजधानी — प्रीपेड रिचार्ज</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('BSES यमुना','BY')"><div class="board-avatar">BY</div><div class="board-name">BSES यमुना — बिल भुगतान</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('BSES यमुना (प्रीपेड)','BY')"><div class="board-avatar">BY</div><div class="board-name">BSES यमुना — प्रीपेड रिचार्ज</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('NDMC','ND')"><div class="board-avatar">ND</div><div class="board-name">नई दिल्ली नगर पालिका परिषद (NDMC)</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('Tata Power — DDL','TP')"><div class="board-avatar">TP</div><div class="board-name">Tata Power — DDL (दिल्ली)</div><div class="chev">›</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 2b. ELECTRICITY LANDING — NEW USER (no saved connection yet) ============ -->
+      <div class="app-screen" id="screen-elec-new" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">बिजली बिल</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="elec-pad">
+            <div class="subhead" style="margin-top:8px;">अपना राज्य चुनें</div>
+            <div class="search-field">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input placeholder="राज्य खोजें" />
+            </div>
+            <div class="subhead" style="margin-top:0;">सुझाए गए बोर्ड</div>
+            <div class="board-row" onclick="selectBoard('West Bengal Electricity','WB')"><div class="board-avatar">WB</div><div class="board-name">West Bengal Electricity</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('Maharashtra SEDCL','MS')"><div class="board-avatar">MS</div><div class="board-name">Maharashtra State Electricity Distbn Co Ltd</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('UPPCL','UP')"><div class="board-avatar">UP</div><div class="board-name">UPPCL — पोस्टपेड और स्मार्ट प्रीपेड मीटर रिचार्ज</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('BESCOM','BE')"><div class="board-avatar">BE</div><div class="board-name">Bangalore Electricity Supply Co. Ltd (BESCOM)</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('TSSPDCL','TS')"><div class="board-avatar">TS</div><div class="board-name">Southern Power Distribution Co. of Telangana</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('TNPDCL','TN')"><div class="board-avatar">TN</div><div class="board-name">Tamil Nadu Power Distribution Corp (TNPDCL)</div><div class="chev">›</div></div>
+            <div class="subhead">आंध्र प्रदेश</div>
+            <div class="board-row" onclick="selectBoard('APCPDCL','AP')"><div class="board-avatar">AP</div><div class="board-name">Andhra Pradesh Central Power Distbn Corp</div><div class="chev">›</div></div>
+            <div class="board-row" onclick="selectBoard('Eastern Power (AP)','EP')"><div class="board-avatar">EP</div><div class="board-name">Eastern Power Distribution Co. of AP</div><div class="chev">›</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 3. CONSUMER DETAILS (new connection) ============ -->
+      <div class="app-screen" id="screen-consumer-details" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">कनेक्शन जोड़ें</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="cd-pad">
+            <div class="selected-board">
+              <div class="logo-circle" id="cd-board-avatar">BS</div>
+              <div><div class="name" id="cd-board-name">BSES राजधानी</div><div class="tag">इलेक्ट्रिसिटी बोर्ड चयनित</div></div>
+            </div>
+            <div class="field">
+              <label>उपनाम (वैकल्पिक)</label>
+              <input type="text" id="cd-nickname" placeholder="जैसे — मेरा घर, दुकान">
+            </div>
+            <div class="field">
+              <label>उपभोक्ता / खाता संख्या</label>
+              <input type="text" id="cd-consumer" placeholder="उपभोक्ता संख्या दर्ज करें" maxlength="12">
+              <div class="hint">यह जानकारी आपके बिजली बिल पर उपलब्ध है</div>
+            </div>
+          </div>
+        </div>
+        <div class="cta-footer">
+          <button class="cta-btn is-disabled" id="fetch-btn" onclick="fetchBill()">बिल जांचें</button>
+        </div>
+      </div>
+
+      <!-- ============ 4. BILL DETAILS / PAYMENT ============ -->
+      <div class="app-screen" id="screen-bill-details" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">बिल विवरण</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll" style="padding-bottom:130px;">
+          <div class="bill-card">
+            <div class="bill-head">
+              <div class="logo-circle" id="bd-board-avatar">DH<br>BVN</div>
+              <div>
+                <div class="customer">विजय मित्तल</div>
+                <div class="board" id="bd-board-name">Dakshin Haryana Bijli Vitran Nigam (DHBVN) · •••••271</div>
+                <div class="due-pill">14 दिनों में देय</div>
+              </div>
+            </div>
+            <div class="bill-divider"></div>
+            <div class="bill-amount"><div class="amt">₹15,220</div></div>
+            <div class="bill-grid">
+              <div><div class="k">बिल तारीख</div><div class="v">10 सित॰ 2026</div></div>
+              <div><div class="k">नियत तारीख</div><div class="v">28 सित॰ 2026</div></div>
+              <div><div class="k">बिल अवधि</div><div class="v">मासिक</div></div>
+            </div>
+          </div>
+          <div class="coin-note"><span>🪙</span><span class="txt">इस भुगतान पर आप 150 लॉयल्टी कॉइन्स कमाएंगे</span></div>
+        </div>
+        <div class="cta-footer">
+          <button class="cta-btn" id="pay-btn" onclick="payNow()">अभी भुगतान करें</button>
+        </div>
+      </div>
+
+      <!-- ============ 5. PAYMENT SUCCESS ============ -->
+      <div class="app-screen" id="screen-payment-success" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <div class="spacer38"></div>
+          <div class="title">भुगतान सफल</div>
+          <button class="circle-btn" onclick="goHome()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="success-pad">
+            <div class="success-check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0A8400" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div class="success-title">₹15,220 का भुगतान सफल</div>
+            <div class="success-sub">DHBVN · •••••271 · UPI</div>
+
+            <div class="coins-earned">
+              <div class="lbl">🪙 लॉयल्टी कॉइन्स क्रेडिट हो गए</div>
+              <div class="num">+<span id="coin-count">0</span></div>
+            </div>
+            <div class="txn-id">लेन-देन ID: HTB2026091528417</div>
+
+            <div class="btn-row">
+              <button class="btn-outline" onclick="goTo('invoice')">चालान देखें</button>
+              <button class="btn-fill" onclick="goHome()">होम पर जाएं</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 5b. PAYMENT PENDING ============ -->
+      <div class="app-screen" id="screen-payment-pending" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <div class="spacer38"></div>
+          <div class="title">भुगतान पेंडिंग</div>
+          <button class="circle-btn" onclick="goHome()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="success-pad">
+            <div class="result-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+            </div>
+            <div class="success-title">भुगतान की पुष्टि होना बाकी है</div>
+            <div class="success-sub">₹15,220 · DHBVN · •••••271</div>
+
+            <div class="info-box">आपकी राशि PayU से डेबिट हो चुकी है। बिजली बोर्ड (BBPS) से पुष्टि की प्रतीक्षा है — यह आमतौर पर कुछ मिनटों में पूरा हो जाता है। कृपया दोबारा भुगतान न करें।</div>
+
+            <div class="inv-card" style="margin-bottom:20px;">
+              <div class="inv-row"><span class="k">PayU स्टेटस</span><span class="pill-green">सफल</span></div>
+              <div class="inv-row"><span class="k">BBPS स्टेटस</span><span class="pill-amber" id="pending-bbps-pill">पेंडिंग</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स</span><span class="pill-grey">क्रेडिट नहीं हुए</span></div>
+              <div class="inv-row"><span class="k">चालान</span><span class="pill-grey">जनरेट नहीं हुआ</span></div>
+            </div>
+            <div class="txn-id">लेन-देन ID: HTB2026091528417</div>
+
+            <div class="btn-row">
+              <button class="btn-fill" id="check-pending-btn" onclick="checkPendingStatus()">स्टेटस जांचें</button>
+              <button class="btn-outline" onclick="goHome()">होम पर जाएं</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 5c. PAYMENT FAILED ============ -->
+      <div class="app-screen" id="screen-payment-failed" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <div class="spacer38"></div>
+          <div class="title">भुगतान असफल</div>
+          <button class="circle-btn" onclick="goHome()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="success-pad">
+            <div class="result-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </div>
+            <div class="success-title">भुगतान असफल रहा</div>
+            <div class="success-sub">₹15,220 · DHBVN · •••••271</div>
+
+            <div class="info-box">बैंक द्वारा भुगतान अस्वीकार कर दिया गया। आपके खाते से कोई राशि नहीं काटी गई है। नीचे दिए बटन से दोबारा कोशिश करें।</div>
+
+            <div class="inv-card" style="margin-bottom:20px;">
+              <div class="inv-row"><span class="k">PayU स्टेटस</span><span class="pill-red">असफल</span></div>
+              <div class="inv-row"><span class="k">BBPS स्टेटस</span><span class="pill-grey">शुरू नहीं हुआ</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स</span><span class="pill-grey">क्रेडिट नहीं हुए</span></div>
+              <div class="inv-row"><span class="k">चालान</span><span class="pill-grey">जनरेट नहीं हुआ</span></div>
+            </div>
+            <div class="txn-id">लेन-देन ID: HTB2026091528417</div>
+
+            <div class="btn-row">
+              <button class="btn-fill" onclick="goTo('bill-details')">पुनः प्रयास करें</button>
+              <button class="btn-outline" onclick="goHome()">होम पर जाएं</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 5d. REFUND / REFUND PENDING ============ -->
+      <div class="app-screen" id="screen-payment-refund" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <div class="spacer38"></div>
+          <div class="title">रिफंड अपडेट</div>
+          <button class="circle-btn" onclick="goHome()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="success-pad">
+            <div class="result-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4390FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0114-5M21 14a8 8 0 01-14 5"/><path d="M3 4v5h5M21 20v-5h-5"/></svg>
+            </div>
+            <div class="success-title" id="refund-title">राशि रिफंड की जा रही है</div>
+            <div class="success-sub">₹15,220 · DHBVN · •••••271</div>
+
+            <div class="info-box">PayU से भुगतान सफल रहा, लेकिन बिजली बोर्ड (BBPS) से पुष्टि नहीं मिल पाई। आपकी पूरी राशि रिफंड की जा रही है — कोई कॉइन्स क्रेडिट नहीं हुए और कोई चालान जनरेट नहीं हुआ।</div>
+
+            <div class="inv-card" style="margin-bottom:20px;">
+              <div class="inv-row"><span class="k">PayU स्टेटस</span><span class="pill-green">सफल</span></div>
+              <div class="inv-row"><span class="k">BBPS स्टेटस</span><span class="pill-red">असफल</span></div>
+              <div class="inv-row"><span class="k">रिफंड स्टेटस</span><span class="pill-amber" id="refund-status-pill">पेंडिंग</span></div>
+              <div class="inv-row"><span class="k">रिफंड संदर्भ</span><span class="v">RFD9938201156</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स</span><span class="pill-grey">क्रेडिट नहीं हुए</span></div>
+              <div class="inv-row"><span class="k">चालान</span><span class="pill-grey">जनरेट नहीं हुआ</span></div>
+            </div>
+            <div class="txn-id">लेन-देन ID: HTB2026091528417</div>
+
+            <div class="btn-row">
+              <button class="btn-fill" id="check-refund-btn" onclick="checkRefundStatus()">रिफंड स्टेटस जांचें</button>
+              <button class="btn-outline" onclick="goHome()">होम पर जाएं</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 6. INVOICE ============ -->
+      <div class="app-screen" id="screen-invoice" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">चालान / रसीद</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="inv-pad">
+            <div class="inv-card">
+              <div class="inv-row"><span class="k">स्टेटस</span><span class="status-pill">सफल</span></div>
+              <div class="inv-row"><span class="k">लेन-देन ID</span><span class="v">HTB2026091528417</span></div>
+              <div class="inv-row"><span class="k">BBPS संदर्भ</span><span class="v">BBPS9920157733</span></div>
+              <div class="inv-row"><span class="k">PayU संदर्भ</span><span class="v">PYU4471820056</span></div>
+              <div class="inv-row"><span class="k">बिजली बोर्ड</span><span class="v">DHBVN</span></div>
+              <div class="inv-row"><span class="k">उपभोक्ता संख्या</span><span class="v">•••••271</span></div>
+              <div class="inv-row"><span class="k">भुगतान राशि</span><span class="v">₹15,220</span></div>
+              <div class="inv-row"><span class="k">भुगतान तरीका</span><span class="v">UPI</span></div>
+              <div class="inv-row"><span class="k">तारीख / समय</span><span class="v">14 सित॰ 2026, 3:56 PM</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स क्रेडिट</span><span class="v">🪙 +150</span></div>
+            </div>
+            <div class="inv-actions">
+              <button class="btn-outline" onclick="showToast('चालान डाउनलोड हो गया')">डाउनलोड करें</button>
+              <button class="btn-outline" onclick="showToast('शेयर लिंक कॉपी हो गया')">शेयर करें</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 7. TRANSACTION HISTORY (per connection) ============ -->
+      <div class="app-screen" id="screen-txn-history" style="transform:translateX(100%); z-index:1;">
+        <div class="topnav">
+          <button class="circle-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="title">लेन-देन इतिहास</div>
+          <button class="circle-btn" onclick="showToast('सहायता केंद्र जल्द आ रहा है')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+        </div>
+        <div class="scroll">
+          <div class="dues-pad">
+            <div class="selected-board" style="margin-bottom:20px;">
+              <div class="logo-circle">DH<br>BVN</div>
+              <div><div class="name">203 बजरंग</div><div class="tag">DHBVN · •••••271</div></div>
+            </div>
+
+            <div class="inv-card" style="margin-bottom:12px;">
+              <div class="inv-row"><span class="k">14 सित॰ 2026</span><span class="pill-green">सफल</span></div>
+              <div class="inv-row"><span class="k">भुगतान राशि</span><span class="v">₹15,220</span></div>
+              <div class="inv-row"><span class="k">भुगतान तरीका</span><span class="v">UPI</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स क्रेडिट</span><span class="v">🪙 +150</span></div>
+            </div>
+            <div class="inv-card" style="margin-bottom:12px;">
+              <div class="inv-row"><span class="k">15 जुल॰ 2026</span><span class="pill-green">सफल</span></div>
+              <div class="inv-row"><span class="k">भुगतान राशि</span><span class="v">₹15,181</span></div>
+              <div class="inv-row"><span class="k">भुगतान तरीका</span><span class="v">Net Banking</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स क्रेडिट</span><span class="v">🪙 +148</span></div>
+            </div>
+            <div class="inv-card" style="margin-bottom:12px;">
+              <div class="inv-row"><span class="k">16 जून 2026</span><span class="pill-green">सफल</span></div>
+              <div class="inv-row"><span class="k">भुगतान राशि</span><span class="v">₹14,960</span></div>
+              <div class="inv-row"><span class="k">भुगतान तरीका</span><span class="v">UPI</span></div>
+              <div class="inv-row"><span class="k">कॉइन्स क्रेडिट</span><span class="v">🪙 +146</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /screen-stack -->
+
+    <div class="toast" id="toast"></div>
+
+    <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSheet()"></div>
+    <div class="bottom-sheet" id="bottom-sheet">
+      <div id="sheet-content-default">
+        <div class="sheet-header">
+          <div class="logo-circle">DH<br>BVN</div>
+          <div style="flex:1;">
+            <div class="sheet-title" id="sheet-nickname">203 बजरंग</div>
+            <div class="sheet-sub">9150129271</div>
+          </div>
+          <button class="icon-btn" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="sheet-divider"></div>
+        <div class="sheet-row" onclick="openRenameSheet()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+          उपनाम बदलें
+        </div>
+        <div class="sheet-divider"></div>
+        <div class="sheet-row" onclick="openHistoryFromSheet()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 014-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 01-4 4H3"/></svg>
+          इतिहास देखें
+        </div>
+        <div class="sheet-divider"></div>
+        <div class="sheet-row danger" onclick="openDeleteConfirm()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+          खाता हटाएं
+        </div>
+      </div>
+
+      <div id="sheet-content-rename" style="display:none;">
+        <div class="sheet-title-lg">उपनाम बदलें</div>
+        <div class="field">
+          <label>उपनाम</label>
+          <input type="text" id="rename-input" maxlength="24">
+        </div>
+        <div class="btn-row">
+          <button class="btn-fill" onclick="saveNickname()">सेव करें</button>
+          <button class="btn-outline" onclick="showSheetDefault()">रद्द करें</button>
+        </div>
+      </div>
+
+      <div id="sheet-content-delete" style="display:none;">
+        <div class="sheet-title-lg">क्या आप वाकई इस खाते को हटाना चाहते हैं?</div>
+        <div class="sheet-sub-block">DHBVN · <span id="delete-confirm-nickname">203 बजरंग</span> · •••••271 — हटाने के बाद भुगतान करने के लिए दोबारा कनेक्शन जोड़ना होगा। आपका पुराना लेन-देन इतिहास सुरक्षित रहेगा।</div>
+        <div class="btn-row">
+          <button class="btn-fill danger-btn" onclick="confirmDeleteAccount()">हटाएं</button>
+          <button class="btn-outline" onclick="showSheetDefault()">रद्द करें</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+<script>
+  /* ---------- navigation stack ---------- */
+  let activeId = 'home';
+  let stackArr = [];
+  const EASE = 'transform .36s cubic-bezier(.22,.61,.36,1)';
+
+  function el(id){ return document.getElementById('screen-'+id); }
+  function place(node, xPercent, z, animate){
+    node.style.transition = animate ? EASE : 'none';
+    node.style.transform = 'translateX('+xPercent+'%)';
+    node.style.zIndex = z;
+  }
+
+  function goTo(id){
+    if(id === activeId) return;
+    const cur = el(activeId), next = el(id);
+    stackArr.push(activeId);
+    place(next, 100, 20, false);
+    void next.offsetWidth;
+    requestAnimationFrame(()=>{
+      place(next, 0, 20, true);
+      place(cur, -28, 10, true);
+    });
+    activeId = id;
+    if(id === 'payment-success') setTimeout(animateCoins, 120);
+  }
+
+  function goBack(){
+    if(!stackArr.length) return;
+    const prevId = stackArr.pop();
+    const cur = el(activeId), prev = el(prevId);
+    place(prev, -28, 20, false);
+    void prev.offsetWidth;
+    requestAnimationFrame(()=>{
+      place(prev, 0, 20, true);
+      place(cur, 100, 10, true);
+    });
+    activeId = prevId;
+  }
+
+  function goHome(){
+    stackArr = [];
+    const cur = el(activeId), home = el('home');
+    if(cur !== home){
+      place(home, -28, 20, false);
+      void home.offsetWidth;
+      requestAnimationFrame(()=>{
+        place(home, 0, 20, true);
+        place(cur, 100, 10, true);
+      });
+    }
+    activeId = 'home';
+  }
+
+  /* ---------- electricity landing: persona decides the state, not a tab ---------- */
+  let isNewUser = false; // set by the demo persona switcher below
+  function openElectricity(){
+    goTo(isNewUser ? 'elec-new' : 'elec-existing');
+  }
+  let accountDeleted = false; // set by "खाता हटाएं" in the account's ⋮ menu
+  function refreshDueVisibility(){
+    const showElectricity = !isNewUser && !accountDeleted;
+    document.getElementById('due-electricity').style.display = showElectricity ? 'flex' : 'none';
+    document.getElementById('due-electricity-2').style.display = showElectricity ? 'flex' : 'none';
+    document.getElementById('dues-week-label').style.display = showElectricity ? 'block' : 'none';
+    const otherCount = 3; // Jio + Loan EMI + Piped Gas are always shown in this demo
+    document.getElementById('dues-count').textContent = (showElectricity ? otherCount + 1 : otherCount) + ' बिल आपकी प्रतीक्षा में हैं';
+  }
+
+  function setPersona(newUser){
+    isNewUser = newUser;
+    document.getElementById('persona-existing').classList.toggle('active', !newUser);
+    document.getElementById('persona-new').classList.toggle('active', newUser);
+    refreshDueVisibility();
+    goHome();
+  }
+
+  /* ---------- account "more" bottom sheet (⋮ on the saved-account card) ---------- */
+  function openAccountSheet(){
+    document.getElementById('sheet-backdrop').classList.add('show');
+    document.getElementById('bottom-sheet').classList.add('show');
+    showSheetDefault();
+  }
+  function closeSheet(){
+    document.getElementById('sheet-backdrop').classList.remove('show');
+    document.getElementById('bottom-sheet').classList.remove('show');
+  }
+  function showSheetDefault(){
+    document.getElementById('sheet-content-default').style.display = 'block';
+    document.getElementById('sheet-content-rename').style.display = 'none';
+    document.getElementById('sheet-content-delete').style.display = 'none';
+  }
+  function openRenameSheet(){
+    document.getElementById('rename-input').value = document.getElementById('acct-nickname').textContent.trim();
+    document.getElementById('sheet-content-default').style.display = 'none';
+    document.getElementById('sheet-content-rename').style.display = 'block';
+    setTimeout(()=>document.getElementById('rename-input').focus(), 50);
+  }
+  function saveNickname(){
+    const val = document.getElementById('rename-input').value.trim();
+    if(!val) return;
+    document.getElementById('acct-nickname').textContent = val;
+    document.getElementById('sheet-nickname').textContent = val;
+    document.getElementById('delete-confirm-nickname').textContent = val;
+    document.getElementById('due-nickname-home').textContent = val + ' · •••••271';
+    document.getElementById('due-nickname-list').textContent = val + ' · •••••271';
+    closeSheet();
+    showToast('उपनाम अपडेट हो गया');
+  }
+  function openHistoryFromSheet(){
+    closeSheet();
+    goTo('txn-history');
+  }
+  function openDeleteConfirm(){
+    document.getElementById('sheet-content-default').style.display = 'none';
+    document.getElementById('sheet-content-delete').style.display = 'block';
+  }
+  function confirmDeleteAccount(){
+    closeSheet();
+    accountDeleted = true;
+    refreshDueVisibility();
+    document.getElementById('elec-account-section').style.display = 'none';
+    showToast('खाता हटा दिया गया');
+  }
+
+  /* ---------- new-connection flow ---------- */
+  function setBoardLabels(name, initials){
+    document.getElementById('cd-board-name').textContent = name;
+    document.getElementById('cd-board-avatar').textContent = initials;
+    document.getElementById('bd-board-name').textContent = name + ' · •••••271';
+    document.getElementById('bd-board-avatar').textContent = initials;
+  }
+  function selectBoard(name, initials){
+    setBoardLabels(name, initials);
+    goTo('consumer-details');
+  }
+
+  function checkConsumerForm(){
+    const ok = document.getElementById('cd-consumer').value.trim().length >= 4;
+    document.getElementById('fetch-btn').classList.toggle('is-disabled', !ok);
+  }
+  document.getElementById('cd-consumer').addEventListener('input', checkConsumerForm);
+
+  function fetchBill(){
+    const btn = document.getElementById('fetch-btn');
+    if(btn.classList.contains('is-disabled') || btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spinner"></span>बिल प्राप्त हो रहा है…';
+    setTimeout(()=>{
+      goTo('bill-details');
+      setTimeout(()=>{
+        btn.classList.remove('loading');
+        btn.textContent = 'बिल जांचें';
+        document.getElementById('cd-consumer').value = '';
+        document.getElementById('cd-nickname').value = '';
+        checkConsumerForm();
+      }, 500);
+    }, 1100);
+  }
+
+  /* ---------- payment flow: 4 demo outcomes ---------- */
+  let demoOutcome = 'success'; // 'success' | 'pending' | 'failed' | 'refund'
+  function setOutcome(val){
+    demoOutcome = val;
+    ['success','pending','failed','refund'].forEach(v=>{
+      document.getElementById('outcome-'+v).classList.toggle('active', v===val);
+    });
+  }
+
+  function payNow(){
+    const btn = document.getElementById('pay-btn');
+    if(btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+
+    if(demoOutcome === 'failed'){
+      // PayU itself declines — BBPS is never attempted
+      btn.innerHTML = '<span class="spinner"></span>PayU से भुगतान लिया जा रहा है…';
+      setTimeout(()=>{ btn.innerHTML = '<span class="spinner"></span>भुगतान अस्वीकृत हो रहा है…'; }, 700);
+      setTimeout(()=>{
+        goTo('payment-failed');
+        setTimeout(()=>{ btn.classList.remove('loading'); btn.textContent = 'अभी भुगतान करें'; }, 500);
+      }, 1450);
+      return;
+    }
+
+    // success / pending / refund all clear PayU, then differ at BBPS confirmation
+    btn.innerHTML = '<span class="spinner"></span>PayU से भुगतान लिया जा रहा है…';
+    setTimeout(()=>{ btn.innerHTML = '<span class="spinner"></span>BBPS से पुष्टि हो रही है…'; }, 700);
+    setTimeout(()=>{
+      if(demoOutcome === 'success') goTo('payment-success');
+      else if(demoOutcome === 'pending') goTo('payment-pending');
+      else if(demoOutcome === 'refund') goTo('payment-refund');
+      setTimeout(()=>{ btn.classList.remove('loading'); btn.textContent = 'अभी भुगतान करें'; }, 500);
+    }, 1450);
+  }
+
+  function checkPendingStatus(){
+    const btn = document.getElementById('check-pending-btn');
+    if(btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spinner"></span>स्टेटस जांचा जा रहा है…';
+    setTimeout(()=>{
+      document.getElementById('pending-bbps-pill').outerHTML = '<span class="pill-green" id="pending-bbps-pill">सफल</span>';
+      goTo('payment-success');
+      setTimeout(()=>{ btn.classList.remove('loading'); btn.textContent = 'स्टेटस जांचें'; }, 400);
+    }, 1200);
+  }
+
+  function checkRefundStatus(){
+    const btn = document.getElementById('check-refund-btn');
+    if(btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spinner"></span>जांच रहे हैं…';
+    setTimeout(()=>{
+      document.getElementById('refund-status-pill').outerHTML = '<span class="pill-green" id="refund-status-pill">रिफंड हो गया</span>';
+      document.getElementById('refund-title').textContent = '₹15,220 रिफंड हो गया';
+      btn.classList.remove('loading');
+      btn.textContent = 'रिफंड की पुष्टि हो गई';
+      btn.classList.add('is-disabled');
+      showToast('₹15,220 सफलतापूर्वक रिफंड हो गया');
+    }, 1200);
+  }
+
+  function animateCoins(){
+    const node = document.getElementById('coin-count');
+    const target = 150;
+    const start = performance.now();
+    const dur = 900;
+    function step(now){
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      node.textContent = Math.round(eased * target);
+      if(p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ---------- toast ---------- */
+  let toastTimer;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    clearTimeout(toastTimer);
+    t.textContent = msg;
+    t.classList.add('show');
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 1700);
+  }
+
+  /* ---------- full reset (for repeat demo runs) ---------- */
+  function resetAll(){
+    stackArr = [];
+    clearTimeout(toastTimer);
+    document.getElementById('toast').classList.remove('show');
+    ['all-dues','elec-existing','elec-new','consumer-details','bill-details','payment-success','payment-pending','payment-failed','payment-refund','invoice','txn-history'].forEach(id=>{
+      place(el(id), 100, 1, false);
+    });
+    place(el('home'), 0, 10, false);
+    activeId = 'home';
+    accountDeleted = false;
+    document.getElementById('elec-account-section').style.display = '';
+    closeSheet();
+    showSheetDefault();
+    document.getElementById('acct-nickname').textContent = '203 बजरंग';
+    document.getElementById('sheet-nickname').textContent = '203 बजरंग';
+    document.getElementById('delete-confirm-nickname').textContent = '203 बजरंग';
+    document.getElementById('due-nickname-home').textContent = '203 बजरंग · •••••271';
+    document.getElementById('due-nickname-list').textContent = '203 बजरंग · •••••271';
+    setPersona(false);
+    setOutcome('success');
+    document.getElementById('cd-consumer').value = '';
+    document.getElementById('cd-nickname').value = '';
+    checkConsumerForm();
+    document.getElementById('coin-count').textContent = '0';
+    setBoardLabels('BSES राजधानी', 'BS');
+    document.getElementById('bd-board-name').textContent = 'Dakshin Haryana Bijli Vitran Nigam (DHBVN) · •••••271';
+    document.getElementById('bd-board-avatar').innerHTML = 'DH<br>BVN';
+
+    // restore mutated result-screen states from any prior demo run
+    const pendingPill = document.getElementById('pending-bbps-pill');
+    if(pendingPill){ pendingPill.outerHTML = '<span class="pill-amber" id="pending-bbps-pill">पेंडिंग</span>'; }
+    const checkPendingBtn = document.getElementById('check-pending-btn');
+    checkPendingBtn.classList.remove('loading','is-disabled');
+    checkPendingBtn.textContent = 'स्टेटस जांचें';
+
+    const refundPill = document.getElementById('refund-status-pill');
+    if(refundPill){ refundPill.outerHTML = '<span class="pill-amber" id="refund-status-pill">पेंडिंग</span>'; }
+    document.getElementById('refund-title').textContent = 'राशि रिफंड की जा रही है';
+    const checkRefundBtn = document.getElementById('check-refund-btn');
+    checkRefundBtn.classList.remove('loading','is-disabled');
+    checkRefundBtn.textContent = 'रिफंड स्टेटस जांचें';
+  }
+</script>
+
+</body>
+</html>
